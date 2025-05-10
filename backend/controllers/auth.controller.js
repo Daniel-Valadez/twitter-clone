@@ -26,6 +26,11 @@ export const signup = async (req, res, next) => {
     }
 
     //Let's hash the user's password now
+
+    if(password.length < 6) {
+      return res.status(400).json({error: "Password is too short - must be 6 characters long."}); 
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -56,6 +61,41 @@ export const signup = async (req, res, next) => {
   }
 };
 
-export const login = async (req, res, next) => {};
+export const login = async (req, res, next) => {
+  try {
+    const {username, password} = req.body; 
+    const user = await User.findOne({username}); 
 
-export const logout = async (req, res, next) => {};
+    console.log("THIS IS THE USER", user); 
+
+    const isPasswordCorrect = await bcrypt.compare(password, user?.password || ""); 
+    
+    if(!isPasswordCorrect || !user) {
+      res.status(400).json({error: "Invalid username or password"}); 
+    }
+
+    generateTokenAndSetCookie(user._id, res); 
+
+    res.status(200).json({
+      _id: user._id,
+      fullName: user.fullName,
+      username: user.username,
+      following: user.following,
+      followers: user.followers,
+      coverImg: user.coverImg,
+    })
+
+  } catch(error) {
+    console.log("Error logging in", error); 
+    res.status(500).json({error: "Internal server error."})
+  }
+};
+
+export const logout = async (req, res, next) => {
+  try {
+
+  } catch(error) {
+    console.log("Error logging out", error); 
+    res.status(500).json({error: "Internal server error."})
+  }
+};
