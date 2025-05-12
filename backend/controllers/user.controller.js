@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import Notification from "../models/notification.model.js";
 import bcrypt from "bcryptjs";
+import {v2 as cloudinary} from "cloudinary"; 
 
 export const getUserProfile = async (req, res) => {
   const { username } = req.params;
@@ -79,36 +80,83 @@ export const toggleFollowUser = async (req, res) => {
 
 export const updateUserProfile = async (req, res) => {
   const {fullName, email, username, currentPassword, newPassword, bio, link} = req.body; 
-  let {profileImh, coverImg} = req.body; 
+  //let fullName, email, username, currentPassword, newPassword, bio, link, profileImg, coverImg; 
+
+  /* let fullName = req.body?.fullName;
+  let email = req.body?.email;
+  let username = req.body?.username;
+  let currentPassword = req.body?.currentPassword;
+  let newPassword = req.body?.newPassword;
+  let bio = req.body?.bio;
+  let link = req.body?.link; 
+  let profileImg = req.body?.profileImg; 
+  let coverImg = req.body?.coverImg; */ 
+  let {profileImg, coverImg} = req.body; 
 
   const userId = req.user._id; 
 
+  //console.log("about to go into the catch block"); 
+
   try {
-    const user = await User.findById(userId); 
+    let user = await User.findById(userId); 
 
     if(!user) {
       return res.status(400).json({message: "User not found"});
     }
 
     if((!newPassword && currentPassword) || (!currentPassword && newPassword)) {
-      res.status(400).json({error: "Please provide your current password and a new password"}); 
+      return res.status(400).json({error: "Please provide your current password and a new password"}); 
     }
 
     if(currentPassword && newPassword) {
       const isMatch = await bcrypt.compare(currentPassword, user.password); 
 
       if(!isMatch) {
-        res.status(400).json({error: "Invalid password"}); 
+        return res.status(400).json({error: "Invalid password"}); 
       }
-
+      
+      console.log("what is going on")
       if(newPassword.length < 6) {
-        res.status(400).json({error: "Password does not meet length requirement of 6 characters"}); 
+        return res.status(400).json({error: "Password does not meet length requirement of 6 characters"}); 
       }
 
       const salt = bcrypt.genSalt(10); 
       user.password = await bcrypt.hash(newPassword, salt); 
 
-      
+      console.log("what is going on")
+
+      if(profileImg) {
+        if(user.profileImg) {
+          await cloudinary.uploader.destroy(user.profileImg.split("/").pop().split(".")[0]); 
+        }
+
+        const uploadedResponse = await cloudinary.uploader.upload(profileImg); 
+        profileImg = uploadedResponse.secure_url; 
+      }
+
+      if(coverImg) {
+        if(user.profileImg) {
+          await cloudinary.uploader.destroy(user.coverImg.split("/").pop().split(".")[0]); 
+        }
+
+        const uploadedResponse = await cloudinary.uploader.upload(profileImg); 
+        coverImg = uploadedResponse.secure_url; 
+      }
+
+
+      user.fullName = fullName || user.fullName; 
+      user.email = email || user.email; 
+      user.username = username || user.username; 
+      user.bio = bio || user.bio; 
+      user.link = link || user.link; 
+      user.profileImg = profileImg || user.profileImg; 
+      user.coverImg = coverImg || user.coverImg; 
+
+      user = await user.save(); 
+
+      user.password = null; 
+
+      return res.status(200).json(user); 
     }
   } catch (error) {
     console.log("INTERNAL SERVER ERROR", error); 
